@@ -1,6 +1,5 @@
 // ============================================
 // SALES AGENT OVERLAY — content.js
-// Injected into Google Meet, Teams, Zoom
 // ============================================
 
 let overlayContainer = null;
@@ -53,21 +52,25 @@ function createOverlay() {
   document.body.appendChild(overlayContainer);
 
   meetingStartTime = Date.now();
-  initOverlayLogic(shadow);
+
+  // Wait for DOM to be ready inside shadow before attaching logic
+  requestAnimationFrame(() => {
+    initOverlayLogic(shadow);
+  });
 }
 
 function getOverlayHTML() {
   return `
-    <div id="sao-panel" class="panel visible">
-      <div class="sao-header">
+    <div id="sao-panel" class="panel">
+      <div class="sao-header" id="sao-drag-handle">
         <div class="sao-logo">
           <span class="logo-dot"></span>
           <span class="logo-text">Sales Agent</span>
           <span class="sao-live-badge">LIVE</span>
         </div>
         <div class="sao-controls">
-          <button id="sao-minimize">−</button>
-          <button id="sao-close">✕</button>
+          <button id="sao-minimize" type="button">−</button>
+          <button id="sao-close" type="button">✕</button>
         </div>
       </div>
 
@@ -88,13 +91,11 @@ function getOverlayHTML() {
 
       <div class="sao-section">
         <div class="section-title">Talk / Listen Ratio</div>
-        <div class="ratio-bar-container">
-          <div class="ratio-bar">
-            <div class="ratio-talk" id="sao-ratio-talk">50%</div>
-            <div class="ratio-listen" id="sao-ratio-listen">50%</div>
-          </div>
-          <div class="ratio-labels"><span>You</span><span>Prospect</span></div>
+        <div class="ratio-bar">
+          <div class="ratio-talk" id="sao-ratio-talk" style="width:50%">50%</div>
+          <div class="ratio-listen" id="sao-ratio-listen" style="width:50%">50%</div>
         </div>
+        <div class="ratio-labels"><span>You</span><span>Prospect</span></div>
         <div id="sao-ratio-tip" class="ratio-tip"></div>
       </div>
 
@@ -119,7 +120,7 @@ function getOverlayHTML() {
 
       <div class="sao-footer">
         <div class="meeting-timer" id="sao-timer">00:00</div>
-        <button id="sao-end-meeting" class="end-btn">End & Sync to CRM</button>
+        <button id="sao-end-meeting" class="end-btn" type="button">End & Sync to CRM</button>
       </div>
     </div>
 
@@ -140,7 +141,7 @@ function getOverlayStyles() {
       top: 80px;
       right: 16px;
       z-index: 2147483647;
-      font-family: 'DM Sans', 'Segoe UI', sans-serif;
+      font-family: 'Segoe UI', sans-serif;
     }
 
     .panel {
@@ -164,14 +165,15 @@ function getOverlayStyles() {
       background: rgba(99,255,180,0.04);
       border-bottom: 1px solid rgba(255,255,255,0.06);
       cursor: move;
+      user-select: none;
     }
     .sao-logo { display: flex; align-items: center; gap: 7px; }
     .logo-dot {
-      width: 8px; height: 8px;
-      background: #63ffb4;
-      border-radius: 50%;
-      animation: glow-pulse 2s infinite;
+      width: 8px; height: 8px; background: #63ffb4;
+      border-radius: 50%; animation: glow-pulse 2s infinite;
+      display: inline-block;
     }
+    .logo-dot.small { width: 6px; height: 6px; }
     @keyframes glow-pulse {
       0%, 100% { box-shadow: 0 0 4px #63ffb4; }
       50% { box-shadow: 0 0 12px #63ffb4; }
@@ -186,10 +188,11 @@ function getOverlayStyles() {
     .sao-controls button {
       background: rgba(255,255,255,0.06);
       border: none; color: rgba(255,255,255,0.5);
-      width: 22px; height: 22px;
-      border-radius: 6px; cursor: pointer; font-size: 12px;
+      width: 22px; height: 22px; border-radius: 6px;
+      cursor: pointer; font-size: 14px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
     }
-    .sao-controls button:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .sao-controls button:hover { background: rgba(255,255,255,0.15); color: #fff; }
 
     .sao-score-section {
       padding: 12px 14px;
@@ -201,8 +204,7 @@ function getOverlayStyles() {
       border-radius: 99px; overflow: hidden; margin-bottom: 4px;
     }
     .score-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #63ffb4, #00d4ff);
+      height: 100%; background: linear-gradient(90deg, #63ffb4, #00d4ff);
       border-radius: 99px; transition: width 1s ease;
     }
     .score-value { color: #63ffb4; font-size: 22px; font-weight: 700; }
@@ -223,8 +225,7 @@ function getOverlayStyles() {
 
     .insights-list { display: flex; flex-direction: column; gap: 5px; }
     .insight-item {
-      background: rgba(99,255,180,0.06);
-      border: 1px solid rgba(99,255,180,0.12);
+      background: rgba(99,255,180,0.06); border: 1px solid rgba(99,255,180,0.12);
       border-radius: 8px; padding: 7px 10px;
       color: rgba(255,255,255,0.85); font-size: 12px; line-height: 1.4;
       animation: slide-in 0.3s ease;
@@ -246,7 +247,10 @@ function getOverlayStyles() {
       background: #00d4ff; display: flex; align-items: center; justify-content: center;
       font-size: 8px; color: #000; font-weight: 700; transition: width 0.5s ease; min-width: 20px;
     }
-    .ratio-labels { display: flex; justify-content: space-between; color: rgba(255,255,255,0.3); font-size: 10px; }
+    .ratio-labels {
+      display: flex; justify-content: space-between;
+      color: rgba(255,255,255,0.3); font-size: 10px; margin-top: 3px;
+    }
     .ratio-tip { margin-top: 5px; font-size: 11px; color: #ffd166; font-style: italic; }
 
     .signals-list { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -276,38 +280,87 @@ function getOverlayStyles() {
       border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;
     }
     .end-btn:hover { opacity: 0.85; }
+    .end-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .pill {
       display: flex; align-items: center; gap: 6px;
       background: #0d0f14; border: 1px solid rgba(99,255,180,0.2);
       padding: 7px 12px; border-radius: 99px; cursor: pointer;
       color: #fff; font-size: 12px; font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
     .pill.hidden { display: none; }
   `;
 }
 
 function initOverlayLogic(shadow) {
-  shadow.getElementById("sao-minimize").addEventListener("click", () => {
-    shadow.getElementById("sao-panel").classList.add("hidden");
-    shadow.getElementById("sao-pill").classList.remove("hidden");
+  // ── Minimize ──────────────────────────────────────────────────────────────
+  const minimizeBtn = shadow.getElementById("sao-minimize");
+  const closeBtn    = shadow.getElementById("sao-close");
+  const panel       = shadow.getElementById("sao-panel");
+  const pill        = shadow.getElementById("sao-pill");
+  const endBtn      = shadow.getElementById("sao-end-meeting");
+  const wrapper     = shadow.getElementById("sales-overlay-wrapper");
+  const dragHandle  = shadow.getElementById("sao-drag-handle");
+
+  if (!minimizeBtn || !closeBtn || !panel || !pill || !endBtn) {
+    console.error("[SalesAgent] Overlay elements not found — retrying...");
+    setTimeout(() => initOverlayLogic(shadow), 100);
+    return;
+  }
+
+  minimizeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.classList.add("hidden");
+    pill.classList.remove("hidden");
+    console.log("[SalesAgent] Minimized");
   });
 
-  shadow.getElementById("sao-pill").addEventListener("click", () => {
-    shadow.getElementById("sao-panel").classList.remove("hidden");
-    shadow.getElementById("sao-pill").classList.add("hidden");
+  pill.addEventListener("click", () => {
+    panel.classList.remove("hidden");
+    pill.classList.add("hidden");
+    console.log("[SalesAgent] Restored");
   });
 
-  shadow.getElementById("sao-close").addEventListener("click", () => {
+  closeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
     overlayContainer.remove();
     overlayContainer = null;
+    meetingDetected = false;
   });
 
-  shadow.getElementById("sao-end-meeting").addEventListener("click", () => {
-    endMeetingAndSync();
+  // ── End & Sync ────────────────────────────────────────────────────────────
+  endBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const duration = meetingStartTime
+      ? Math.floor((Date.now() - meetingStartTime) / 1000)
+      : 0;
+
+    endBtn.textContent = "Syncing...";
+    endBtn.disabled = true;
+
+    chrome.runtime.sendMessage({
+      type: "END_MEETING_SYNC",
+      payload: {
+        platform: detectPlatform(),
+        durationSeconds: duration,
+        endedAt: new Date().toISOString()
+      }
+    }, (response) => {
+      console.log("[SalesAgent] Sync response:", response);
+    });
+
+    setTimeout(() => {
+      endBtn.textContent = "✅ Synced!";
+      setTimeout(() => {
+        endBtn.textContent = "End & Sync to CRM";
+        endBtn.disabled = false;
+      }, 3000);
+    }, 2500);
   });
 
-  setInterval(() => {
+  // ── Timer ─────────────────────────────────────────────────────────────────
+  const timerInterval = setInterval(() => {
     if (!meetingStartTime) return;
     const elapsed = Math.floor((Date.now() - meetingStartTime) / 1000);
     const mins = String(Math.floor(elapsed / 60)).padStart(2, "0");
@@ -316,101 +369,104 @@ function initOverlayLogic(shadow) {
     if (el) el.textContent = `${mins}:${secs}`;
   }, 1000);
 
-  makeDraggable(
-    shadow.getElementById("sales-overlay-wrapper"),
-    shadow.querySelector(".sao-header")
-  );
+  // ── Drag ──────────────────────────────────────────────────────────────────
+  let isDragging = false, startX, startY, initLeft, initTop;
 
-  chrome.runtime.sendMessage({ type: "OVERLAY_READY", platform: detectPlatform() });
+  dragHandle.addEventListener("mousedown", (e) => {
+    if (e.target.tagName === "BUTTON") return;
+    isDragging = true;
+    startX = e.clientX; startY = e.clientY;
+    const rect = wrapper.getBoundingClientRect();
+    initLeft = rect.left; initTop = rect.top;
+    wrapper.style.transition = "none";
+  });
 
-  // Auto start transcription via tab capture
-  startTranscription();
+  document.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    wrapper.style.left  = initLeft + (e.clientX - startX) + "px";
+    wrapper.style.top   = initTop  + (e.clientY - startY) + "px";
+    wrapper.style.right = "auto";
+  });
+
+  document.addEventListener("mouseup", () => { isDragging = false; });
+
+  // ── Notify background ─────────────────────────────────────────────────────
+  chrome.runtime.sendMessage({
+    type: "OVERLAY_READY",
+    platform: detectPlatform()
+  });
+
+  console.log("[SalesAgent] ✅ Overlay initialized");
 }
 
 function updateOverlayData(shadow, data) {
+  if (!shadow) return;
+
   if (data.score !== undefined) {
-    shadow.getElementById("sao-score-fill").style.width = data.score + "%";
-    shadow.getElementById("sao-score-value").textContent = data.score;
-    shadow.getElementById("sao-pill-score").textContent = data.score;
+    const fill  = shadow.getElementById("sao-score-fill");
+    const val   = shadow.getElementById("sao-score-value");
+    const pill  = shadow.getElementById("sao-pill-score");
+    if (fill) fill.style.width = data.score + "%";
+    if (val)  val.textContent  = data.score;
+    if (pill) pill.textContent = data.score;
   }
+
   if (data.insights?.length > 0) {
     const list = shadow.getElementById("sao-insights-list");
-    list.innerHTML = "";
-    data.insights.slice(0, 3).forEach(insight => {
-      const el = document.createElement("div");
-      el.className = "insight-item";
-      el.textContent = insight;
-      list.appendChild(el);
-    });
+    if (list) {
+      list.innerHTML = "";
+      data.insights.slice(0, 3).forEach(insight => {
+        const el = document.createElement("div");
+        el.className = "insight-item";
+        el.textContent = insight;
+        list.appendChild(el);
+      });
+    }
   }
+
   if (data.talkRatio !== undefined) {
-    shadow.getElementById("sao-ratio-talk").style.width = data.talkRatio + "%";
-    shadow.getElementById("sao-ratio-talk").textContent = data.talkRatio + "%";
-    shadow.getElementById("sao-ratio-listen").style.width = (100 - data.talkRatio) + "%";
-    shadow.getElementById("sao-ratio-listen").textContent = (100 - data.talkRatio) + "%";
-    const tip = shadow.getElementById("sao-ratio-tip");
-    if (data.talkRatio > 65) tip.textContent = "💡 Let the prospect speak more";
-    else if (data.talkRatio < 35) tip.textContent = "💡 Engage more with questions";
-    else tip.textContent = "✅ Good balance";
+    const talk   = shadow.getElementById("sao-ratio-talk");
+    const listen = shadow.getElementById("sao-ratio-listen");
+    const tip    = shadow.getElementById("sao-ratio-tip");
+    if (talk)   { talk.style.width   = data.talkRatio + "%"; talk.textContent   = data.talkRatio + "%"; }
+    if (listen) { listen.style.width = (100 - data.talkRatio) + "%"; listen.textContent = (100 - data.talkRatio) + "%"; }
+    if (tip) {
+      if (data.talkRatio > 65)      tip.textContent = "💡 Let the prospect speak more";
+      else if (data.talkRatio < 35) tip.textContent = "💡 Engage more with questions";
+      else                          tip.textContent = "✅ Good balance";
+    }
   }
+
   if (data.buyingSignals?.length > 0) {
     const list = shadow.getElementById("sao-signals-list");
-    list.innerHTML = "";
-    data.buyingSignals.forEach(signal => {
-      const el = document.createElement("span");
-      el.className = "signal-tag";
-      el.textContent = signal;
-      list.appendChild(el);
-    });
+    if (list) {
+      list.innerHTML = "";
+      data.buyingSignals.forEach(signal => {
+        const el = document.createElement("span");
+        el.className = "signal-tag";
+        el.textContent = signal;
+        list.appendChild(el);
+      });
+    }
   }
+
   if (data.objections?.length > 0) {
     const list = shadow.getElementById("sao-objections-list");
-    list.innerHTML = "";
-    data.objections.forEach(obj => {
-      const el = document.createElement("div");
-      el.className = "objection-item";
-      el.textContent = obj;
-      list.appendChild(el);
-    });
-  }
-  if (data.nextBestAction) {
-    shadow.getElementById("sao-nba").textContent = data.nextBestAction;
-  }
-}
-
-function endMeetingAndSync() {
-  const duration = meetingStartTime ? Math.floor((Date.now() - meetingStartTime) / 1000) : 0;
-  chrome.runtime.sendMessage({
-    type: "END_MEETING_SYNC",
-    payload: {
-      platform: detectPlatform(),
-      durationSeconds: duration,
-      endedAt: new Date().toISOString()
+    if (list) {
+      list.innerHTML = "";
+      data.objections.forEach(obj => {
+        const el = document.createElement("div");
+        el.className = "objection-item";
+        el.textContent = obj;
+        list.appendChild(el);
+      });
     }
-  });
-  const btn = overlayContainer?.shadowRoot?.getElementById("sao-end-meeting");
-  if (btn) {
-    btn.textContent = "Syncing to CRM...";
-    btn.disabled = true;
-    setTimeout(() => { btn.textContent = "✅ Synced!"; }, 2500);
   }
-}
 
-function makeDraggable(element, handle) {
-  let isDragging = false, startX, startY, initLeft, initTop;
-  handle.addEventListener("mousedown", (e) => {
-    isDragging = true; startX = e.clientX; startY = e.clientY;
-    const rect = element.getBoundingClientRect();
-    initLeft = rect.left; initTop = rect.top;
-    element.style.transition = "none";
-  });
-  document.addEventListener("mousemove", (e) => {
-    if (!isDragging) return;
-    element.style.left = initLeft + (e.clientX - startX) + "px";
-    element.style.top = initTop + (e.clientY - startY) + "px";
-    element.style.right = "auto";
-  });
-  document.addEventListener("mouseup", () => { isDragging = false; });
+  if (data.nextBestAction) {
+    const nba = shadow.getElementById("sao-nba");
+    if (nba) nba.textContent = data.nextBestAction;
+  }
 }
 
 function watchForMeeting() {
@@ -427,41 +483,27 @@ function watchForMeeting() {
   }
 }
 
-// ─── Transcription via Tab Capture (bypasses Meet CSP) ───────────────────────
-async function startTranscription() {
-  try {
-    const stored = await new Promise(resolve =>
-      chrome.storage.sync.get(["assemblyaiKey"], resolve)
-    );
-
-    if (!stored.assemblyaiKey) {
-      console.warn("[SalesAgent] No AssemblyAI key found - enter it in the popup");
-      return;
-    }
-
-    chrome.runtime.sendMessage({
-      type: "START_TAB_CAPTURE",
-      payload: { assemblyaiKey: stored.assemblyaiKey }
-    });
-
-    console.log("[SalesAgent] 🎤 Requested tab audio capture");
-  } catch (err) {
-    console.error("[SalesAgent] startTranscription error:", err);
-  }
-}
-
-function stopTranscription() {
-  chrome.runtime.sendMessage({ type: "STOP_TAB_CAPTURE" });
-}
-
 // ─── Init ─────────────────────────────────────────────────────────────────────
 watchForMeeting();
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === "SHOW_OVERLAY") createOverlay();
+  if (message.type === "SHOW_OVERLAY") {
+    createOverlay();
+  }
   if (message.type === "INSIGHT_UPDATE" && overlayContainer) {
     updateOverlayData(overlayContainer.shadowRoot, message.payload);
   }
+  if (message.type === "CRM_SYNC_COMPLETE") {
+    const shadow = overlayContainer?.shadowRoot;
+    if (shadow) {
+      const btn = shadow.getElementById("sao-end-meeting");
+      if (btn) {
+        btn.textContent = "✅ Synced to HubSpot!";
+        setTimeout(() => {
+          btn.textContent = "End & Sync to CRM";
+          btn.disabled = false;
+        }, 3000);
+      }
+    }
+  }
 });
-
-window.addEventListener("beforeunload", stopTranscription);
