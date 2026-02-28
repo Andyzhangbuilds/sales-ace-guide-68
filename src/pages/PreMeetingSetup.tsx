@@ -28,7 +28,8 @@ export interface MeetingSetup {
   clientIncome: string;
   clientProfession: string;
   riskProfile: string;
-  revenueTarget: string;
+  estimatedNetWorth: string;
+  productBenefits: string;
   notes: string;
 }
 
@@ -40,7 +41,8 @@ const defaultSetup: MeetingSetup = {
   clientIncome: "",
   clientProfession: "",
   riskProfile: "",
-  revenueTarget: "",
+  estimatedNetWorth: "",
+  productBenefits: "",
   notes: "",
 };
 
@@ -202,31 +204,43 @@ export default function PreMeetingSetup() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Revenue Target</Label>
+                <Label className="text-xs text-muted-foreground">Estimated Net Worth / Potential Revenue Generation</Label>
                 <Input
-                  value={setup.revenueTarget}
-                  onChange={(e) => setSetup({ ...setup, revenueTarget: e.target.value })}
-                  placeholder="e.g., $5,000 / month"
+                  value={setup.estimatedNetWorth}
+                  onChange={(e) => setSetup({ ...setup, estimatedNetWorth: e.target.value })}
+                  placeholder="e.g., $500K net worth / $5K monthly potential"
                   className="bg-background border-border mt-1"
                 />
               </div>
             </div>
           </div>
 
-          {/* Notes */}
+          {/* Product Benefits */}
           <div className="bg-card border border-border rounded-lg p-5">
             <div className="flex items-center gap-2 mb-4">
               <DollarSign className="w-4 h-4 text-primary" />
               <h2 className="font-mono text-sm font-semibold text-foreground">
-                Additional Notes
+                Product Benefits & Selling Points
               </h2>
             </div>
             <Textarea
-              value={setup.notes}
-              onChange={(e) => setSetup({ ...setup, notes: e.target.value })}
-              placeholder="Any prior interactions, known objections, or special considerations..."
-              className="bg-background border-border min-h-[140px] text-sm"
+              value={setup.productBenefits}
+              onChange={(e) => setSetup({ ...setup, productBenefits: e.target.value })}
+              placeholder="List key benefits of your product offerings to use for rebuttals and selling points during the meeting..."
+              className="bg-background border-border min-h-[100px] text-sm"
             />
+
+            <div className="mt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="font-mono text-xs text-muted-foreground tracking-wider uppercase">Additional Notes</h3>
+              </div>
+              <Textarea
+                value={setup.notes}
+                onChange={(e) => setSetup({ ...setup, notes: e.target.value })}
+                placeholder="Any prior interactions, known objections, or special considerations..."
+                className="bg-background border-border min-h-[80px] text-sm"
+              />
+            </div>
           </div>
         </div>
 
