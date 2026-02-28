@@ -2,22 +2,39 @@
   "manifest_version": 3,
   "name": "Sales Agent Overlay",
   "version": "1.0",
-  "description": "Live sales coaching overlay for Google Meet & Teams",
-  "permissions": ["activeTab", "scripting", "storage", "microphone"],
+  "description": "Live sales coaching overlay for Google Meet, Teams & Zoom",
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
     "https://meet.google.com/*",
-    "https://teams.microsoft.com/*"
+    "https://teams.microsoft.com/*",
+    "https://zoom.us/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://meet.google.com/*", "https://teams.microsoft.com/*"],
-      "js": ["content.js"]
+      "matches": [
+        "https://meet.google.com/*",
+        "https://teams.microsoft.com/*",
+        "https://zoom.us/*"
+      ],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
     }
   ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   }
 }
