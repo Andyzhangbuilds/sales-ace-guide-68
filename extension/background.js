@@ -1,24 +1,20 @@
 // ============================================
 // SALES AGENT OVERLAY — background.js
-// Uses tabCapture to bypass Meet CSP
-// Uses HubSpot Engagements API v1
+// tabCapture handled in popup.js
 // ============================================
 
-// ─── Config ───────────────────────────────────────────────────────────────────
 const CONFIG = {
   ANTHROPIC_API_KEY: "",
   ASSEMBLYAI_API_KEY: "",
   HUBSPOT_ACCESS_TOKEN: "",
 };
 
-// ─── Load saved keys on startup ───────────────────────────────────────────────
 chrome.storage.sync.get(["anthropicKey", "assemblyaiKey", "hubspotToken"], (data) => {
   if (data.anthropicKey)  CONFIG.ANTHROPIC_API_KEY    = data.anthropicKey;
   if (data.assemblyaiKey) CONFIG.ASSEMBLYAI_API_KEY   = data.assemblyaiKey;
   if (data.hubspotToken)  CONFIG.HUBSPOT_ACCESS_TOKEN = data.hubspotToken;
 });
 
-// ─── Session state ────────────────────────────────────────────────────────────
 let sessionData = {
   transcript: [],
   insights: [],
@@ -33,26 +29,15 @@ let sessionData = {
   startedAt: null,
 };
 
-// ─── Tab capture state ────────────────────────────────────────────────────────
-let assemblySocket = null;
-let captureTabId = null;
-
-// ─── Message handler ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case "OVERLAY_READY":
       sessionData.platform = message.platform;
       sessionData.startedAt = new Date().toISOString();
+      console.log("[SalesAgent] Meeting started:", message.platform);
       break;
     case "TRANSCRIPT_UPDATE":
-      handleTranscriptUpdate(message.payload, sender.tab?.id);
-      break;
-    case "START_TAB_CAPTURE":
-      captureTabId = sender.tab?.id;
-      startTabCapture(message.payload.assemblyaiKey, captureTabId);
-      break;
-    case "STOP_TAB_CAPTURE":
-      stopTabCapture();
+      handleTranscriptUpdate(message.payload, message.payload.tabId || sender.tab?.id);
       break;
     case "END_MEETING_SYNC":
       handleEndMeeting(message.payload, sender.tab?.id);
@@ -62,6 +47,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.payload.anthropicKey)  CONFIG.ANTHROPIC_API_KEY    = message.payload.anthropicKey;
       if (message.payload.assemblyaiKey) CONFIG.ASSEMBLYAI_API_KEY   = message.payload.assemblyaiKey;
       if (message.payload.hubspotToken)  CONFIG.HUBSPOT_ACCESS_TOKEN = message.payload.hubspotToken;
+      console.log("[SalesAgent] Config updated ✅");
       break;
     case "RESET_SESSION":
       resetSession();
@@ -70,97 +56,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// ─── Tab Audio Capture ────────────────────────────────────────────────────────
-async function startTabCapture(assemblyaiKey, tabId) {
-  try {
-    chrome.tabCapture.capture(
-      { audio: true, video: false },
-      async (stream) => {
-        if (!stream) {
-          console.error("[SalesAgent] Tab capture failed:", chrome.runtime.lastError?.message);
-          return;
-        }
-
-        console.log("[SalesAgent] 🎤 Tab audio captured successfully");
-
-        // Get AssemblyAI token
-        const tokenRes = await fetch("https://api.assemblyai.com/v2/realtime/token", {
-          method: "POST",
-          headers: {
-            "Authorization": assemblyaiKey,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ expires_in: 3600 })
-        });
-        const tokenData = await tokenRes.json();
-
-        if (!tokenData.token) {
-          console.error("[SalesAgent] AssemblyAI token failed:", tokenData);
-          return;
-        }
-
-        // Connect WebSocket to AssemblyAI
-        assemblySocket = new WebSocket(
-          `wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${tokenData.token}`
-        );
-
-        assemblySocket.onopen = () => {
-          console.log("[SalesAgent] ✅ AssemblyAI WebSocket connected");
-
-          const audioContext = new AudioContext({ sampleRate: 16000 });
-          const source = audioContext.createMediaStreamSource(stream);
-          const processor = audioContext.createScriptProcessor(4096, 1, 1);
-
-          processor.onaudioprocess = (e) => {
-            if (assemblySocket?.readyState !== WebSocket.OPEN) return;
-            const inputData = e.inputBuffer.getChannelData(0);
-            const int16 = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) {
-              const s = Math.max(-1, Math.min(1, inputData[i]));
-              int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-            }
-            assemblySocket.send(int16.buffer);
-          };
-
-          source.connect(processor);
-          processor.connect(audioContext.destination);
-        };
-
-        assemblySocket.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.message_type === "FinalTranscript" && data.text?.trim()) {
-            console.log("[SalesAgent] 📝 Transcript:", data.text);
-            handleTranscriptUpdate({
-              text: data.text,
-              speaker: "advisor",
-              durationMs: (data.audio_duration * 1000) || 2000
-            }, tabId);
-          }
-        };
-
-        assemblySocket.onerror = (err) => {
-          console.error("[SalesAgent] AssemblyAI socket error:", err);
-        };
-
-        assemblySocket.onclose = () => {
-          console.log("[SalesAgent] AssemblyAI socket closed");
-        };
-      }
-    );
-  } catch (err) {
-    console.error("[SalesAgent] startTabCapture error:", err);
-  }
-}
-
-function stopTabCapture() {
-  if (assemblySocket) {
-    assemblySocket.close();
-    assemblySocket = null;
-  }
-  console.log("[SalesAgent] Tab capture stopped");
-}
-
-// ─── Handle transcript segment ────────────────────────────────────────────────
 async function handleTranscriptUpdate(payload, tabId) {
   const { text, speaker, durationMs } = payload;
   sessionData.transcript.push({ text, speaker, timestamp: new Date().toISOString() });
@@ -181,9 +76,8 @@ async function handleTranscriptUpdate(payload, tabId) {
       sessionData.score          = insights.score         || sessionData.score;
       sessionData.contactInfo    = { ...sessionData.contactInfo, ...insights.contactInfo };
 
-      const targetTab = tabId || captureTabId;
-      if (targetTab) {
-        chrome.tabs.sendMessage(targetTab, {
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, {
           type: "INSIGHT_UPDATE",
           payload: {
             score:          sessionData.score,
@@ -199,9 +93,11 @@ async function handleTranscriptUpdate(payload, tabId) {
   }
 }
 
-// ─── Get AI insights from Claude ─────────────────────────────────────────────
 async function getAIInsights() {
-  if (!CONFIG.ANTHROPIC_API_KEY) return null;
+  if (!CONFIG.ANTHROPIC_API_KEY) {
+    console.warn("[SalesAgent] No Anthropic key");
+    return null;
+  }
   try {
     const recentTranscript = sessionData.transcript
       .slice(-20)
@@ -218,10 +114,10 @@ async function getAIInsights() {
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 800,
-        system: `You are a real-time sales coach. Return ONLY a JSON object with no markdown or extra text:
+        system: `You are a real-time sales coach. Return ONLY a JSON object with no markdown:
 {
-  "score": <0-100 integer>,
-  "insights": [<up to 3 short coaching tips>],
+  "score": <0-100>,
+  "insights": [<up to 3 coaching tips>],
   "buyingSignals": [<buying interest phrases>],
   "objections": [<objections raised>],
   "nextBestAction": "<one clear sentence>",
@@ -238,15 +134,13 @@ async function getAIInsights() {
     const text = data.content?.[0]?.text || "{}";
     return JSON.parse(text.replace(/```json|```/g, "").trim());
   } catch (err) {
-    console.error("[SalesAgent] AI insights error:", err);
+    console.error("[SalesAgent] AI error:", err);
     return null;
   }
 }
 
-// ─── Handle end of meeting ────────────────────────────────────────────────────
 async function handleEndMeeting(payload, tabId) {
-  console.log("[SalesAgent] Generating call summary...");
-  stopTabCapture();
+  console.log("[SalesAgent] Generating summary...");
   const summary = await generateCallSummary(payload.durationSeconds);
   if (summary) {
     await syncToHubSpot(summary, payload);
@@ -260,7 +154,6 @@ async function handleEndMeeting(payload, tabId) {
   resetSession();
 }
 
-// ─── Generate full call summary ───────────────────────────────────────────────
 async function generateCallSummary(durationSeconds) {
   if (!CONFIG.ANTHROPIC_API_KEY) return null;
   try {
@@ -304,7 +197,6 @@ async function generateCallSummary(durationSeconds) {
   }
 }
 
-// ─── Sync to HubSpot ──────────────────────────────────────────────────────────
 async function syncToHubSpot(summary, meetingPayload) {
   if (!CONFIG.HUBSPOT_ACCESS_TOKEN) {
     console.warn("[SalesAgent] No HubSpot token");
@@ -428,7 +320,6 @@ ${(summary.keyQuotes || []).map(q => `"${q}"`).join("\n") || "None captured"}
   }
 }
 
-// ─── Reset session ────────────────────────────────────────────────────────────
 function resetSession() {
   sessionData = {
     transcript: [], insights: [], buyingSignals: [], objections: [],
