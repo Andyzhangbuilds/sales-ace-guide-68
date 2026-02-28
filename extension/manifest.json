@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Sales Agent Overlay",
+  "version": "1.0",
+  "description": "Live sales coaching overlay for Google Meet & Teams",
+  "permissions": ["activeTab", "scripting", "storage", "microphone"],
+  "host_permissions": [
+    "https://meet.google.com/*",
+    "https://teams.microsoft.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*", "https://teams.microsoft.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
