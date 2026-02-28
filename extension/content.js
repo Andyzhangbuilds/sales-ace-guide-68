@@ -322,6 +322,9 @@ function initOverlayLogic(shadow) {
   );
 
   chrome.runtime.sendMessage({ type: "OVERLAY_READY", platform: detectPlatform() });
+
+  // Auto start transcription via tab capture
+  startTranscription();
 }
 
 function updateOverlayData(shadow, data) {
@@ -379,7 +382,11 @@ function endMeetingAndSync() {
   const duration = meetingStartTime ? Math.floor((Date.now() - meetingStartTime) / 1000) : 0;
   chrome.runtime.sendMessage({
     type: "END_MEETING_SYNC",
-    payload: { platform: detectPlatform(), durationSeconds: duration, endedAt: new Date().toISOString() }
+    payload: {
+      platform: detectPlatform(),
+      durationSeconds: duration,
+      endedAt: new Date().toISOString()
+    }
   });
   const btn = overlayContainer?.shadowRoot?.getElementById("sao-end-meeting");
   if (btn) {
@@ -420,6 +427,34 @@ function watchForMeeting() {
   }
 }
 
+// ─── Transcription via Tab Capture (bypasses Meet CSP) ───────────────────────
+async function startTranscription() {
+  try {
+    const stored = await new Promise(resolve =>
+      chrome.storage.sync.get(["assemblyaiKey"], resolve)
+    );
+
+    if (!stored.assemblyaiKey) {
+      console.warn("[SalesAgent] No AssemblyAI key found - enter it in the popup");
+      return;
+    }
+
+    chrome.runtime.sendMessage({
+      type: "START_TAB_CAPTURE",
+      payload: { assemblyaiKey: stored.assemblyaiKey }
+    });
+
+    console.log("[SalesAgent] 🎤 Requested tab audio capture");
+  } catch (err) {
+    console.error("[SalesAgent] startTranscription error:", err);
+  }
+}
+
+function stopTranscription() {
+  chrome.runtime.sendMessage({ type: "STOP_TAB_CAPTURE" });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
 watchForMeeting();
 
 chrome.runtime.onMessage.addListener((message) => {
@@ -428,3 +463,5 @@ chrome.runtime.onMessage.addListener((message) => {
     updateOverlayData(overlayContainer.shadowRoot, message.payload);
   }
 });
+
+window.addEventListener("beforeunload", stopTranscription);
