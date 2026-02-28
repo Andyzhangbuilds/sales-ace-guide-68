@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sales Agent</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 300px;
+      background: #0d0f14;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .header {
+      padding: 16px 18px;
+      background: rgba(99,255,180,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-dot {
+      width: 10px; height: 10px; background: #63ffb4;
+      border-radius: 50%; box-shadow: 0 0 10px #63ffb4;
+    }
+    .header h1 { font-size: 15px; font-weight: 700; }
+    .header p { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+    .status-bar {
+      padding: 10px 18px; display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #555; }
+    .status-dot.active { background: #63ffb4; box-shadow: 0 0 8px #63ffb4; }
+    #status-text { color: rgba(255,255,255,0.5); }
+    .section {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .section h2 {
+      font-size: 10px; color: rgba(255,255,255,0.3);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;
+    }
+    .btn {
+      width: 100%; padding: 10px; border-radius: 10px; border: none;
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; margin-bottom: 6px;
+    }
+    .btn-primary { background: linear-gradient(135deg, #63ffb4, #00d4ff); color: #000; }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn-danger {
+      background: rgba(255,71,87,0.1); color: #ff4757;
+      border: 1px solid rgba(255,71,87,0.2);
+    }
+    .config-field { margin-bottom: 8px; }
+    .config-field label {
+      display: block; font-size: 10px; color: rgba(255,255,255,0.35);
+      margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.6px;
+    }
+    .config-field input {
+      width: 100%; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+      padding: 8px 10px; color: #fff; font-family: inherit; font-size: 12px; outline: none;
+    }
+    .config-field input:focus { border-color: rgba(99,255,180,0.4); }
+    .config-field input::placeholder { color: rgba(255,255,255,0.2); }
+    .save-msg { font-size: 11px; color: #63ffb4; text-align: center; padding: 4px; display: none; }
+    .platforms { display: flex; gap: 6px; }
+    .platform-badge {
+      flex: 1; text-align: center; padding: 6px 4px; border-radius: 8px;
+      font-size: 10px; font-weight: 600;
+      background: rgba(99,255,180,0.07); border: 1px solid rgba(99,255,180,0.2); color: #63ffb4;
+    }
+    .footer { padding: 10px 18px; text-align: center; }
+    .footer a { color: rgba(255,255,255,0.2); font-size: 10px; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo-dot"></div>
+    <div>
+      <h1>Sales Agent</h1>
+      <p>Real-time coaching + CRM sync</p>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">No active meeting</span>
+  </div>
+
+  <div class="section">
+    <h2>Supported Platforms</h2>
+    <div class="platforms">
+      <div class="platform-badge">Google Meet</div>
+      <div class="platform-badge">MS Teams</div>
+      <div class="platform-badge">Zoom Web</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Actions</h2>
+    <button class="btn btn-primary" id="btn-show-overlay">Show Overlay</button>
+    <button class="btn btn-danger" id="btn-end-sync">End & Sync to CRM</button>
+  </div>
+
+  <div class="section">
+    <h2>API Configuration</h2>
+    <div class="config-field">
+      <label>Anthropic API Key</label>
+      <input type="password" id="anthropic-key" placeholder="sk-ant-..." />
+    </div>
+    <div class="config-field">
+      <label>HubSpot Access Token</label>
+      <input type="password" id="hubspot-token" placeholder="pat-..." />
+    </div>
+    <button class="btn btn-secondary" id="btn-save-config">Save Configuration</button>
+    <div class="save-msg" id="save-msg">✅ Saved!</div>
+  </div>
+
+  <div class="footer">
+    <a href="#" id="link-reset">Reset Session</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
